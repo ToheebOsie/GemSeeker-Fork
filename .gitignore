@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit real credentials (see README's security note
+# about a previously-leaked .env; don't repeat that mistake)
+.env
+.env.*
+!.env.example
+
+# Legacy JSON-file storage left behind after migrating to Postgres
+# (see README's Storage section) — local backups only, not source.
+data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS/editor cruft
+.DS_Store
+.vscode/
+.idea/
+
+# Twitter/Telegram scraper session artifacts, if a chosen library writes
+# them to disk (e.g. cookie/session cache files) — these are credentials.
+*.session
+cookies.json
+output.docx
+output.txt
+newsol.txt
+exports/
