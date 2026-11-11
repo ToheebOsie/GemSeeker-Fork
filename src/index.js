@@ -7,12 +7,13 @@ const { startEarlyWalletBackfillScheduler } = require('./core/earlyWalletBackfil
 const { isAlertable } = require('./core/alertPolicy');
 const { ensureSchema } = require('./db/schema');
 const { ensureShardSchema } = require('./db/shardSchema');
-const { gemini, payments, patternTracking, admin, marketState, alerts } = require('./config'); // Verify gemini/payments config is available
+const { gemini, payments, patternTracking, admin, marketState, alerts, backgroundJobs } = require('./config'); // Verify gemini/payments config is available
 const { startResearchWorker } = require('./workers/researchWorker');
 const { startTelegramWorker } = require('./workers/telegramWorker');
 const { startNotificationWorker } = require('./workers/notificationWorker');
 const { startResearchObservationWorker } = require('./workers/researchObservationWorker');
 const { startHealthServer } = require('./observability/healthServer');
+const { requiredWorkers, startIf } = require('./core/backgroundJobs');
 const { logRuntimeIdentity, runtimeTag } = require('./observability/runtimeIdentity');
 
 // Last-resort safety net. This is NOT a substitute for proper try/catch at
@@ -56,16 +57,17 @@ async function main() {
   // Railway service per worker. Consumer workers do not open HTTP ports;
   // notification and observation workers share the main health server.
   const workerDryRun = process.env.WORKER_DRY_RUN !== 'false';
-  const stopResearchWorker = startResearchWorker({ dryRun: workerDryRun });
+  const bg = backgroundJobs;
+  const stopResearchWorker = startIf(bg.researchWorkerEnabled, () => startResearchWorker({ dryRun: workerDryRun }));
   const stopTelegramWorker = startTelegramWorker({ dryRun: workerDryRun });
   const stopNotificationWorker = startNotificationWorker({
     dryRun: process.env.NOTIFICATION_WORKER_DRY_RUN !== 'false',
     healthPort: false,
   }).stop;
-  const stopResearchObservationWorker = startResearchObservationWorker({
+  const stopResearchObservationWorker = startIf(bg.researchObservationWorkerEnabled, () => startResearchObservationWorker({
     dryRun: process.env.RESEARCH_OBSERVATION_DRY_RUN !== 'false',
     healthPort: false,
-  }).stop;
+  }).stop);
   const mainHealthServer = startHealthServer({
     port: Number(process.env.HEALTH_PORT || 8080),
     // 'telegram' added so /readyz (and the process this container runs
@@ -76,9 +78,11 @@ async function main() {
     // the 'telegram' worker then never registers with workerHealth in the
     // first place, so isReady() sees it as missing rather than merely
     // unhealthy and /readyz correctly reports not-ready.
-    requiredWorkers: ['notification', 'research-observation', TELEGRAM_WORKER_NAME],
+    requiredWorkers: requiredWorkers({ researchObservationWorkerEnabled: bg.researchObservationWorkerEnabled, telegramWorkerName: TELEGRAM_WORKER_NAME }),
   });
   console.log(`[startup] Embedded database workers active (worker dry-run: ${workerDryRun ? 'on' : 'off'}, research observation: ${process.env.RESEARCH_OBSERVATION_DRY_RUN === 'false' ? 'live' : 'dry-run'}, notifications: ${process.env.NOTIFICATION_WORKER_DRY_RUN === 'false' ? 'live' : 'dry-run'}).`);
+  console.log(`[startup] Background jobs — research worker: ${bg.researchWorkerEnabled ? 'on' : 'OFF'}, research-observation worker: ${bg.researchObservationWorkerEnabled ? 'on' : 'OFF'}, discovery events: ${bg.discoveryEventsEnabled ? 'on' : 'OFF'}, discovery evaluations: ${bg.discoveryEvaluationsEnabled ? 'on' : 'OFF'}.`);
+  if (bg.discoveryEventsEnabled && !bg.researchObservationWorkerEnabled) console.warn('[startup] WARNING: discovery events are stored but the research-observation worker is OFF — discovery_observation jobs will queue unprocessed in this process.');
   console.log(`[startup] Gemini AI signals active using model: ${gemini.model}`);
   const allAlertsUnfiltered = alerts.classLevels.length === 3 && alerts.verdicts.length === 3;
   console.log(allAlertsUnfiltered

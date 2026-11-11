@@ -262,6 +262,15 @@ module.exports = {
     enabled: (process.env.HIGH_ROI_PATTERN_SHADOW_ENABLED ?? 'true') !== 'false',
   },
 
+  // Background persistence/worker switches. All default ON (unchanged behaviour); set to exactly
+  // 'false' to turn one off without a code change.
+  backgroundJobs: {
+    researchWorkerEnabled: (process.env.RESEARCH_WORKER_ENABLED ?? 'true') !== 'false',
+    researchObservationWorkerEnabled: (process.env.RESEARCH_OBSERVATION_WORKER_ENABLED ?? 'true') !== 'false',
+    discoveryEventsEnabled: (process.env.DISCOVERY_EVENTS_ENABLED ?? 'true') !== 'false',
+    discoveryEvaluationsEnabled: (process.env.DISCOVERY_EVALUATIONS_ENABLED ?? 'true') !== 'false',
+  },
+
   // Standalone model-focused fork. Tier-2 collection is permitted only after
   // the pre-Gemini high-ROI discovery fingerprint passes. This boundary is
   // separate from the full shadow rubric because that rubric includes the

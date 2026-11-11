@@ -1,4 +1,4 @@
-const { scanner, patternTracking, walletClustering, discoveryLearning, highRoiPatternShadow, modelFocus, fixedWindowWallet, edpiLive: edpiLiveConfig, edpiPositionLifecycle: edpiPositionLifecycleConfig, edpiCTO: edpiCTOConfig, edpiBehavioralPatterns: edpiBehavioralConfig, edpiL: edpiLConfig } = require('../config');
+const { scanner, patternTracking, walletClustering, discoveryLearning, highRoiPatternShadow, modelFocus, fixedWindowWallet, edpiLive: edpiLiveConfig, edpiPositionLifecycle: edpiPositionLifecycleConfig, edpiCTO: edpiCTOConfig, edpiBehavioralPatterns: edpiBehavioralConfig, edpiL: edpiLConfig, backgroundJobs } = require('../config');
 const discoveryService = require('../services/discoveryService');
 const rugcheckService = require('../services/rugcheckService');
 const geminiService = require('../services/gemini_signal_generator');
@@ -140,7 +140,7 @@ async function runScanCycle() {
     // suppress the append-only learning event path or analytical pipeline.
     console.error(`[scanner] discovery provenance summary write failed: ${err.message}`);
   }
-  try {
+  if (backgroundJobs.discoveryEventsEnabled) try {
     const discoveryEvents = await discoveryOutcomeStore.recordDiscoveryEvents(rawPairs);
     discoveryEventIds = discoveryEvents.eventIds || new Map();
     if (discoveryEvents.newEvents?.length) {
@@ -1091,7 +1091,7 @@ async function runScanCycle() {
     }
   }
 
-  try {
+  if (backgroundJobs.discoveryEvaluationsEnabled) try {
     await discoveryOutcomeStore.recordDiscoveryEvaluations(discoveryEvaluations);
   } catch (err) {
     console.error(`[scanner] discovery outcome-evaluation write failed: ${err.message}`);

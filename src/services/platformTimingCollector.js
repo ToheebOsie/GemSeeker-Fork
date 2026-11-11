@@ -1,6 +1,7 @@
 'use strict';
 
 const { query } = require('../db/pool');
+const config = require('../config');
 
 const PLATFORM_TIMING_VERSION = 'platform-timing-v1';
 const ACTIVITY_WINDOWS_MINUTES = Object.freeze([15, 30, 60]);
@@ -89,6 +90,11 @@ function derivePlatformTimingFeatures(token, cutoffMs = Date.now()) {
 
 async function loadPlatformActivityCounts({ db = null, platform, discoverySource, cutoffMs, pairAddress }) {
   if (!platform || !Number.isFinite(cutoffMs)) {
+    return { counts: { 15: null, 30: null, 60: null }, status: 'unavailable', missingFields: ['platform_activity'] };
+  }
+  // discovery_events is only populated while DISCOVERY_EVENTS_ENABLED; an empty table must read as
+  // 'unavailable', never as a measured zero platform activity.
+  if (config.backgroundJobs && config.backgroundJobs.discoveryEventsEnabled === false) {
     return { counts: { 15: null, 30: null, 60: null }, status: 'unavailable', missingFields: ['platform_activity'] };
   }
   const runner = db || { query };

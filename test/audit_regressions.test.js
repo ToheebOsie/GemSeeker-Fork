@@ -13,7 +13,7 @@ const stubs = {
   [path.join(root, 'src/config.js')]: {
     fixedWindowWallet: { enabled: true, heliusApiKey: 'hk', birdeyeApiKey: 'bk', hellomoonApiKey: 'hm', timeoutMs: 2000, pageLimit: 100, maxPages: 2,
       windows: [{ key: 'pre_discovery_30m', phase: 'discovery', minutes: 30 }, { key: 'pre_discovery_60m', phase: 'discovery', minutes: 60 }] },
-    modelFocus: { collectTier2OnlyAfterTier1: true }, tier2Scoring: { enabled: true },
+    modelFocus: { collectTier2OnlyAfterTier1: true }, tier2Scoring: { enabled: true }, backgroundJobs: { discoveryEventsEnabled: true },
   },
   [path.join(root, 'src/db/pool.js')]: {
     withTransaction: async (fn) => !db ? { captureId: 0 } : db.transaction((tx) => fn({ query: (s, p) => tx.query(s, p) })),
@@ -249,6 +249,31 @@ t('participants: per-wallet USD is only written when the window basis is usd', a
   const a = collector.aggregateTransfers([mk('A', 10, 500), mk('B', 10, null)], { pairAddress: 'P', windowStartMs: cutoff - 36e5, windowEndMs: cutoff, priceUsd: 0 });
   assert.strictEqual(a.valueBasis, 'token_amount');
   assert.ok(a.participants.every((p) => p.buyVolumeUsd === null));
+});
+
+const { spawnSync } = require('child_process');
+const scanCalls = (env) => {
+  const r = spawnSync(process.execPath, [path.join(__dirname, '_scan_gating_child.js')], { env: { ...process.env, TELEGRAM_BOT_TOKEN: 'x', DATABASE_URL: 'postgres://u:p@h/d', GEMINI_API_KEY: 'x', DISCOVERY_EVENTS_ENABLED: '', DISCOVERY_EVALUATIONS_ENABLED: '', ...env }, encoding: 'utf8' });
+  const m = /CALLS=(.*)/.exec(r.stdout); assert.ok(m, r.stdout + r.stderr); return JSON.parse(m[1]);
+};
+t('background jobs: scan cycle stores events + evaluations by default', async () => { assert.deepStrictEqual(scanCalls({}), ['events', 'evaluations']); });
+t('background jobs: DISCOVERY_EVENTS_ENABLED=false skips only event storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVENTS_ENABLED: 'false' }), ['evaluations']); });
+t('background jobs: DISCOVERY_EVALUATIONS_ENABLED=false skips only evaluation storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVALUATIONS_ENABLED: 'false' }), ['events']); });
+t('background jobs: disabled research-observation worker is not a required /readyz worker', async () => {
+  const bgj = require('../src/core/backgroundJobs');
+  assert.deepStrictEqual(bgj.requiredWorkers({ researchObservationWorkerEnabled: false, telegramWorkerName: 'telegram' }), ['notification', 'telegram']);
+  assert.ok(bgj.requiredWorkers({ researchObservationWorkerEnabled: true, telegramWorkerName: 'telegram' }).includes('research-observation'));
+  let started = false;
+  await bgj.startIf(false, () => { started = true; return async () => {}; })();
+  assert.strictEqual(started, false);
+});
+t('platform activity: events switched off reads as unavailable, never as zero activity', async () => {
+  const { collectPlatformTimingFeatures } = require('../src/services/platformTimingCollector');
+  stubs[path.join(root, 'src/config.js')].backgroundJobs.discoveryEventsEnabled = false;
+  let queried = false;
+  const p = await collectPlatformTimingFeatures({ token, cutoffMs: cutoff, db: { query: async () => { queried = true; return { rows: [] }; } } });
+  stubs[path.join(root, 'src/config.js')].backgroundJobs.discoveryEventsEnabled = true;
+  assert.strictEqual(p.activityCoverageStatus, 'unavailable'); assert.strictEqual(queried, false); assert.strictEqual(p.platformActivity60mCount, null);
 });
 let pglite = null;
 try { pglite = require('@electric-sql/pglite'); } catch (e) { try { pglite = require(path.join(process.env.PGLITE_DIR || '/home/claude/pgtest', 'node_modules/@electric-sql/pglite')); } catch (e2) {} }
