@@ -256,9 +256,18 @@ const scanCalls = (env) => {
   const r = spawnSync(process.execPath, [path.join(__dirname, '_scan_gating_child.js')], { env: { ...process.env, TELEGRAM_BOT_TOKEN: 'x', DATABASE_URL: 'postgres://u:p@h/d', GEMINI_API_KEY: 'x', DISCOVERY_EVENTS_ENABLED: '', DISCOVERY_EVALUATIONS_ENABLED: '', ...env }, encoding: 'utf8' });
   const m = /CALLS=(.*)/.exec(r.stdout); assert.ok(m, r.stdout + r.stderr); return JSON.parse(m[1]);
 };
-t('background jobs: scan cycle stores events + evaluations by default', async () => { assert.deepStrictEqual(scanCalls({}), ['events', 'evaluations']); });
-t('background jobs: DISCOVERY_EVENTS_ENABLED=false skips only event storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVENTS_ENABLED: 'false' }), ['evaluations']); });
-t('background jobs: DISCOVERY_EVALUATIONS_ENABLED=false skips only evaluation storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVALUATIONS_ENABLED: 'false' }), ['events']); });
+t('background jobs: scan cycle stores events + evaluations by default', async () => { assert.deepStrictEqual(scanCalls({}), ['provenance', 'events', 'outcome_jobs', 'evaluations']); });
+t('background jobs: DISCOVERY_EVENTS_ENABLED=false skips only event storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVENTS_ENABLED: 'false' }), ['provenance', 'evaluations']); });
+t('background jobs: DISCOVERY_EVALUATIONS_ENABLED=false skips only evaluation storage', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_EVALUATIONS_ENABLED: 'false' }), ['provenance', 'events', 'outcome_jobs']); });
+t('background jobs: DISCOVERY_OBSERVATIONS_ENABLED=false skips only the provenance summary', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_OBSERVATIONS_ENABLED: 'false' }), ['events', 'outcome_jobs', 'evaluations']); });
+t('background jobs: DISCOVERY_OUTCOME_OBSERVATIONS_ENABLED=false skips only job scheduling', async () => { assert.deepStrictEqual(scanCalls({ DISCOVERY_OUTCOME_OBSERVATIONS_ENABLED: 'false' }), ['provenance', 'events', 'evaluations']); });
+t('worker: queued discovery follow-ups are drained without fetching or writing observations', async () => {
+  const run = (env) => { const r = spawnSync(process.execPath, [path.join(__dirname, '_worker_gating_child.js')], { env: { ...process.env, TELEGRAM_BOT_TOKEN: 'x', DATABASE_URL: 'postgres://u:p@h/d', GEMINI_API_KEY: 'x', DISCOVERY_OUTCOME_OBSERVATIONS_ENABLED: '', ...env }, encoding: 'utf8' }); const m = /OUT=(.*)/.exec(r.stdout); assert.ok(m, r.stdout + r.stderr); return JSON.parse(m[1]); };
+  const off = run({ DISCOVERY_OUTCOME_OBSERVATIONS_ENABLED: 'false' });
+  assert.strictEqual(off.status, 'ignored'); assert.deepStrictEqual(off.calls, ['complete']);
+  const on = run({});
+  assert.ok(on.calls.includes('WRITE') && on.status !== 'ignored', 'control: with the switch on the job writes an observation: ' + JSON.stringify(on));
+});
 t('background jobs: disabled research-observation worker is not a required /readyz worker', async () => {
   const bgj = require('../src/core/backgroundJobs');
   assert.deepStrictEqual(bgj.requiredWorkers({ researchObservationWorkerEnabled: false, telegramWorkerName: 'telegram' }), ['notification', 'telegram']);

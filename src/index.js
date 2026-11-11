@@ -81,7 +81,7 @@ async function main() {
     requiredWorkers: requiredWorkers({ researchObservationWorkerEnabled: bg.researchObservationWorkerEnabled, telegramWorkerName: TELEGRAM_WORKER_NAME }),
   });
   console.log(`[startup] Embedded database workers active (worker dry-run: ${workerDryRun ? 'on' : 'off'}, research observation: ${process.env.RESEARCH_OBSERVATION_DRY_RUN === 'false' ? 'live' : 'dry-run'}, notifications: ${process.env.NOTIFICATION_WORKER_DRY_RUN === 'false' ? 'live' : 'dry-run'}).`);
-  console.log(`[startup] Background jobs — research worker: ${bg.researchWorkerEnabled ? 'on' : 'OFF'}, research-observation worker: ${bg.researchObservationWorkerEnabled ? 'on' : 'OFF'}, discovery events: ${bg.discoveryEventsEnabled ? 'on' : 'OFF'}, discovery evaluations: ${bg.discoveryEvaluationsEnabled ? 'on' : 'OFF'}.`);
+  console.log(`[startup] Background jobs — research worker: ${bg.researchWorkerEnabled ? 'on' : 'OFF'}, research-observation worker: ${bg.researchObservationWorkerEnabled ? 'on' : 'OFF'}, discovery events: ${bg.discoveryEventsEnabled ? 'on' : 'OFF'}, discovery evaluations: ${bg.discoveryEvaluationsEnabled ? 'on' : 'OFF'}, discovery observations: ${bg.discoveryObservationsEnabled ? 'on' : 'OFF'}, discovery outcome observations: ${bg.discoveryOutcomeObservationsEnabled ? 'on' : 'OFF'}.`);
   if (bg.discoveryEventsEnabled && !bg.researchObservationWorkerEnabled) console.warn('[startup] WARNING: discovery events are stored but the research-observation worker is OFF — discovery_observation jobs will queue unprocessed in this process.');
   console.log(`[startup] Gemini AI signals active using model: ${gemini.model}`);
   const allAlertsUnfiltered = alerts.classLevels.length === 3 && alerts.verdicts.length === 3;

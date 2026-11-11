@@ -269,6 +269,10 @@ module.exports = {
     researchObservationWorkerEnabled: (process.env.RESEARCH_OBSERVATION_WORKER_ENABLED ?? 'true') !== 'false',
     discoveryEventsEnabled: (process.env.DISCOVERY_EVENTS_ENABLED ?? 'true') !== 'false',
     discoveryEvaluationsEnabled: (process.env.DISCOVERY_EVALUATIONS_ENABLED ?? 'true') !== 'false',
+    // discovery_observations (per-pair provenance summary, written every scan cycle)
+    discoveryObservationsEnabled: (process.env.DISCOVERY_OBSERVATIONS_ENABLED ?? 'true') !== 'false',
+    // discovery_outcome_observations (5m..72h follow-up snapshots) + the research_jobs rows that schedule them
+    discoveryOutcomeObservationsEnabled: (process.env.DISCOVERY_OUTCOME_OBSERVATIONS_ENABLED ?? 'true') !== 'false',
   },
 
   // Standalone model-focused fork. Tier-2 collection is permitted only after

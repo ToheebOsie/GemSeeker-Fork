@@ -133,7 +133,7 @@ async function runScanCycle() {
 
   const rawPairs = await discoveryService.getCandidatePairs();
   let discoveryEventIds = new Map();
-  try {
+  if (backgroundJobs.discoveryObservationsEnabled) try {
     await discoveryStore.recordDiscoveries(rawPairs, new Date());
   } catch (err) {
     // Legacy/current provenance summary is observability data; it must never
@@ -143,7 +143,7 @@ async function runScanCycle() {
   if (backgroundJobs.discoveryEventsEnabled) try {
     const discoveryEvents = await discoveryOutcomeStore.recordDiscoveryEvents(rawPairs);
     discoveryEventIds = discoveryEvents.eventIds || new Map();
-    if (discoveryEvents.newEvents?.length) {
+    if (backgroundJobs.discoveryOutcomeObservationsEnabled && discoveryEvents.newEvents?.length) {
       try {
         await discoveryObservationStore.enqueueDiscoveryOutcomeJobs(discoveryEvents.newEvents);
       } catch (observationErr) {

@@ -16,6 +16,7 @@ const { evaluateAlert } = require('../core/alertEvaluator');
 const health = require('../observability/workerHealth');
 const { startHealthServer } = require('../observability/healthServer');
 
+const { backgroundJobs } = require('../config');
 const WORKER_NAME = 'research-observation';
 health.ensureWorker(WORKER_NAME);
 
@@ -27,6 +28,12 @@ async function processObservationJob(job, { dryRun = false } = {}) {
   if (!['alert_observation', 'discovery_observation', 'edpi_l_persistence', 'wallet_activity_capture', 'wallet_evidence_capture'].includes(job.job_type)) {
     await completeResearchJob(job.job_id, WORKER_ID);
     return { status: 'ignored', jobId: job.job_id };
+  }
+
+  // Drain already-queued discovery follow-ups without fetching or writing anything.
+  if (job.job_type === 'discovery_observation' && backgroundJobs.discoveryOutcomeObservationsEnabled === false) {
+    await completeResearchJob(job.job_id, WORKER_ID);
+    return { status: 'ignored', jobId: job.job_id, reason: 'discovery_outcome_observations_disabled' };
   }
 
   if (dryRun) {
